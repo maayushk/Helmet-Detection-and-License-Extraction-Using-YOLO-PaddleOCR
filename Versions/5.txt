@@ -1,0 +1,500 @@
+import os
+import tempfile
+import streamlit as st
+import cv2
+import numpy as np
+import pandas as pd
+from PIL import Image
+from datetime import datetime
+from ultralytics import YOLO
+from paddleocr import PaddleOCR
+
+# --- Page Setup ---
+st.set_page_config(page_title="Smart Helmet Detection", layout="wide")
+
+# --- Custom CSS ---
+st.markdown("""
+    <style>
+        .stApp { background-color: #0f1117; color: #e0e0e0; }
+
+        section[data-testid="stSidebar"] {
+            background-color: #1a1d27;
+            border-right: 1px solid #2e3145;
+        }
+
+        .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+
+        h1 {
+            font-family: 'Courier New', monospace;
+            font-size: 1.6rem !important;
+            letter-spacing: 2px;
+            color: #f0c040 !important;
+            border-bottom: 1px solid #f0c040;
+            padding-bottom: 8px;
+            margin-bottom: 0.5rem !important;
+        }
+
+        h3 {
+            font-family: 'Courier New', monospace;
+            color: #e0e0e0 !important;
+            font-size: 0.85rem !important;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 0.3rem !important;
+        }
+
+        .img-label {
+            background: #1e2130;
+            border: 1px solid #3a3f5c;
+            border-top: 2px solid #f0c040;
+            padding: 6px 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #f0c040;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        .plate-number {
+            font-family: 'Courier New', monospace;
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #f0c040;
+            letter-spacing: 3px;
+        }
+
+        .timestamp {
+            font-size: 0.78rem;
+            color: #c0c8d8;
+            letter-spacing: 1px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            background: #e05252;
+            color: white;
+            font-family: 'Courier New', monospace;
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            letter-spacing: 1.5px;
+        }
+
+        .no-violation {
+            background: #1a1d27;
+            border: 1px solid #2e3145;
+            border-left: 3px solid #52c0a0;
+            padding: 10px 14px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #52c0a0;
+        }
+
+        .loading-box {
+            background: #1a1d27;
+            border: 1px solid #2e3145;
+            border-left: 3px solid #f0c040;
+            padding: 16px 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #f0c040;
+            letter-spacing: 1px;
+            margin: 1rem 0;
+        }
+
+        .section-divider {
+            border: none;
+            border-top: 1px solid #2e3145;
+            margin: 1.2rem 0;
+        }
+
+        .stImage > div > img { border: 1px solid #2e3145; }
+    </style>
+""", unsafe_allow_html=True)
+
+
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+st.sidebar.title("Input Source")
+input_type = st.sidebar.radio("", ["Image", "Video/Real-time"])
+
+# ── Title ─────────────────────────────────────────────────────────────────────
+st.title("⬡ HELMET VIOLATION SYSTEM")
+st.markdown(
+    "<p style='font-family:Courier New; font-size:0.78rem; color:#a0b0c8; letter-spacing:1px;'>"
+    "PIPELINE → DETECT RIDER → DETECT PLATE → EXTRACT TEXT → LOG VIOLATION"
+    "</p>",
+    unsafe_allow_html=True
+)
+st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+
+# --- Initialize Folders ---
+VIOLATIONS_DIR = "Violations"
+os.makedirs(VIOLATIONS_DIR, exist_ok=True)
+EXCEL_PATH = os.path.join(VIOLATIONS_DIR, "violations_log.csv")
+
+
+# ── Model loading ─────────────────────────────────────────────────────────────
+@st.cache_resource
+def load_models():
+    helmet_model = YOLO("yolo_helmet_model.pt")
+    plate_model  = YOLO("plate_model.pt")
+    ocr_model    = PaddleOCR(use_angle_cls=True, lang='en')
+    return helmet_model, plate_model, ocr_model
+
+loading_placeholder = st.empty()
+loading_placeholder.markdown(
+    "<div class='loading-box'>⟳ &nbsp; LOADING AI MODELS — PLEASE WAIT...</div>",
+    unsafe_allow_html=True
+)
+helmet_model, plate_model, ocr_model = load_models()
+loading_placeholder.empty()
+
+
+# ── Shared helper: run OCR on plate crop ──────────────────────────────────────
+def run_ocr(plate_crop_bgr, ocr_model):
+    plate_crop_ocr = cv2.resize(plate_crop_bgr, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+    ocr_result = ocr_model.ocr(plate_crop_ocr, cls=True)
+    if ocr_result and ocr_result[0]:
+        texts = [line[1][0] for line in ocr_result[0]]
+        raw   = max(texts, key=len)
+        return raw.replace("IND", "").replace("ind", "").replace(".", "").replace(" ", "").strip()
+    return "No Plate Detected"
+
+
+# ── Shared helper: render violation log table from CSV ────────────────────────
+def render_violation_log():
+    st.markdown(
+        "<h3 style='font-family:Courier New; color:#e0e0e0; font-size:0.85rem;"
+        "letter-spacing:2px; text-transform:uppercase;'>VIOLATION LOG — ALL RECORDS</h3>",
+        unsafe_allow_html=True
+    )
+    if not os.path.exists(EXCEL_PATH):
+        st.markdown(
+            "<div class='no-violation'>NO RECORDS YET — VIOLATIONS WILL APPEAR HERE</div>",
+            unsafe_allow_html=True
+        )
+        return
+    df_all = pd.read_csv(EXCEL_PATH)
+    if df_all.empty:
+        st.markdown("<div class='no-violation'>NO RECORDS YET</div>", unsafe_allow_html=True)
+        return
+
+    hdr1, hdr2, hdr3, hdr4, hdr5 = st.columns([1.2, 1.2, 0.9, 0.9, 1.5])
+    for hdr, label in zip(
+        [hdr1, hdr2, hdr3, hdr4, hdr5],
+        ["STATUS", "TIMESTAMP", "RIDER", "PLATE IMAGE", "PLATE NUMBER"]
+    ):
+        hdr.markdown(
+            f"<p style='font-family:Courier New; font-size:0.7rem; letter-spacing:1.5px;"
+            f"color:#c0c8d8; margin-bottom:4px; font-weight:bold;'>{label}</p>",
+            unsafe_allow_html=True
+        )
+    st.markdown("<hr style='border-color:#2e3145; margin:4px 0 10px 0;'>", unsafe_allow_html=True)
+
+    for i, row in df_all.iloc[::-1].reset_index(drop=True).iterrows():
+        c1, c2, c3, c4, c5 = st.columns([1.2, 1.2, 0.9, 0.9, 1.5])
+        with c1:
+            st.markdown("<span class='status-badge'>⚠ NO HELMET</span>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<p class='timestamp'>{row['Date and Time']}</p>", unsafe_allow_html=True)
+        with c3:
+            rp = str(row.get("Rider Image Path", ""))
+            if rp and os.path.exists(rp):
+                st.image(rp, channels="BGR", width=80)
+            else:
+                st.markdown("<p style='color:#606880; font-size:0.7rem;'>—</p>", unsafe_allow_html=True)
+        with c4:
+            pp = str(row.get("Plate Image Path", "None"))
+            if pp != "None" and os.path.exists(pp):
+                st.image(pp, channels="BGR", width=80)
+            else:
+                st.markdown("<p style='color:#606880; font-size:0.7rem;'>—</p>", unsafe_allow_html=True)
+        with c5:
+            st.markdown(
+                f"<p class='plate-number'>{row.get('Extracted Text', '—')}</p>",
+                unsafe_allow_html=True
+            )
+        if i < len(df_all) - 1:
+            st.markdown("<hr style='border-color:#2e3145; margin:6px 0;'>", unsafe_allow_html=True)
+
+
+# ── Shared helper: save violations to CSV ────────────────────────────────────
+def save_to_csv(violations_found):
+    if not violations_found:
+        return
+    df_new = pd.DataFrame(violations_found)
+    if os.path.exists(EXCEL_PATH):
+        pd.concat(
+            [pd.read_csv(EXCEL_PATH), df_new], ignore_index=True
+        ).to_csv(EXCEL_PATH, index=False)
+    else:
+        df_new.to_csv(EXCEL_PATH, index=False)
+
+
+# ════════════════════════════════════════════
+# IMAGE MODE
+# ════════════════════════════════════════════
+if input_type == "Image":
+    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+
+    if uploaded_file is not None:
+
+        image     = Image.open(uploaded_file).convert("RGB")
+        img_array = np.array(image)
+        img_bgr   = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+
+        st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+
+        with st.spinner("Running detection..."):
+            helmet_results = helmet_model.predict(img_bgr, conf=0.60)
+            plate_results  = plate_model.predict(img_bgr, conf=0.25)
+
+        # Use YOLO default plot — no custom colors
+        helmet_annotated = helmet_results[0].plot()
+        plate_annotated  = plate_results[0].plot()
+
+        def resize_to_height(img_rgb, height=420):
+            h, w = img_rgb.shape[:2]
+            scale = height / h
+            return cv2.resize(img_rgb, (int(w * scale), height))
+
+        img1 = resize_to_height(img_array)
+        img2 = resize_to_height(cv2.cvtColor(helmet_annotated, cv2.COLOR_BGR2RGB))
+        img3 = resize_to_height(cv2.cvtColor(plate_annotated,  cv2.COLOR_BGR2RGB))
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("<div class='img-label'>① INPUT IMAGE</div>", unsafe_allow_html=True)
+            st.image(img1, use_container_width=True)
+        with col2:
+            st.markdown("<div class='img-label'>② HELMET DETECTION</div>", unsafe_allow_html=True)
+            st.image(img2, use_container_width=True)
+        with col3:
+            st.markdown("<div class='img-label'>③ LICENSE PLATE DETECTION</div>", unsafe_allow_html=True)
+            st.image(img3, use_container_width=True)
+
+        st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+
+        violations_found = []
+        extracted_text   = "No Plate Detected"
+        plate_crop       = None
+        plate_img_path   = "None"
+
+        if len(plate_results[0].boxes) > 0:
+            best_box = max(plate_results[0].boxes, key=lambda b: float(b.conf[0]))
+            px1, py1, px2, py2 = map(int, best_box.xyxy[0])
+            plate_crop = img_bgr[py1:py2, px1:px2]
+            if plate_crop.size > 0:
+                extracted_text = run_ocr(plate_crop, ocr_model)
+
+        for box in helmet_results[0].boxes:
+            if int(box.cls[0]) != 3:
+                continue
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            rider_crop = img_bgr[y1:y2, x1:x2]
+            timestamp_clean = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19]
+            rider_img_path = os.path.join(VIOLATIONS_DIR, f"rider_{timestamp_clean}.jpg")
+            cv2.imwrite(rider_img_path, rider_crop)
+            if plate_crop is not None and plate_crop.size > 0 and plate_img_path == "None":
+                plate_img_path = os.path.join(VIOLATIONS_DIR, f"plate_{timestamp_clean}.jpg")
+                cv2.imwrite(plate_img_path, plate_crop)
+            violations_found.append({
+                "Date and Time":    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Rider Image Path": rider_img_path,
+                "Plate Image Path": plate_img_path,
+                "Extracted Text":   extracted_text,
+            })
+
+        save_to_csv(violations_found)
+
+        if not violations_found:
+            st.markdown(
+                "<div class='no-violation'>✓ NO VIOLATIONS DETECTED IN THIS IMAGE</div>",
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                f"<div class='status-badge' style='display:inline-block; margin-bottom:8px;'>"
+                f"⚠ {len(violations_found)} VIOLATION(S) DETECTED — LOGGED</div>",
+                unsafe_allow_html=True
+            )
+
+        st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+        render_violation_log()
+
+
+# ════════════════════════════════════════════
+# VIDEO MODE
+# ════════════════════════════════════════════
+elif input_type == "Video/Real-time":
+    uploaded_video = st.file_uploader("Upload a video", type=["mp4", "avi", "mov", "mkv"])
+
+    if uploaded_video is not None:
+
+        # Save uploaded video to a temp file so OpenCV can read it
+        tfile = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+        tfile.write(uploaded_video.read())
+        tfile.flush()
+        video_path = tfile.name
+
+        cap          = cv2.VideoCapture(video_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps          = cap.get(cv2.CAP_PROP_FPS) or 30
+        PROCESS_EVERY = 3
+
+        st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='font-family:Courier New; font-size:0.75rem; color:#a0b0c8;'>"
+            f"VIDEO LOADED — {total_frames} FRAMES @ {fps:.1f} FPS — "
+            f"PROCESSING EVERY {PROCESS_EVERY}RD FRAME</p>",
+            unsafe_allow_html=True
+        )
+
+        # UI placeholders
+        progress_bar    = st.progress(0)
+        status_text     = st.empty()
+        frame_display   = st.empty()
+        violation_count = st.empty()
+
+        violations_found  = []
+        seen_plates       = set()   # unique plate texts already logged
+        logged_positions  = set()   # center-x zones already fully logged
+        pending           = {}
+        frame_idx         = 0
+
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            frame_idx += 1
+            progress = int((frame_idx / total_frames) * 100)
+            progress_bar.progress(min(progress, 100))
+            status_text.markdown(
+                f"<p style='font-family:Courier New; font-size:0.72rem; color:#606880;'>"
+                f"PROCESSING FRAME {frame_idx}/{total_frames}</p>",
+                unsafe_allow_html=True
+            )
+
+            if frame_idx % PROCESS_EVERY != 0:
+                continue
+
+            # ── Run detection ─────────────────────────────────────────────
+            helmet_results = helmet_model.predict(frame, conf=0.60, verbose=False)
+            plate_results  = plate_model.predict(frame, conf=0.25, verbose=False)
+
+            # ── Annotated preview — YOLO default colors ───────────────────
+            helmet_ann = helmet_results[0].plot()
+            plate_ann  = plate_results[0].plot()
+            annotated  = cv2.addWeighted(helmet_ann, 0.5, plate_ann, 0.5, 0)
+            preview_w  = 350
+            preview_h  = int(annotated.shape[0] * preview_w / annotated.shape[1])
+            preview    = cv2.resize(annotated, (preview_w, preview_h))
+            frame_display.image(cv2.cvtColor(preview, cv2.COLOR_BGR2RGB), width=preview_w)
+
+            # ── No-helmet detections ──────────────────────────────────────
+            no_helmet_boxes = [b for b in helmet_results[0].boxes if int(b.cls[0]) == 3]
+
+            # ── Best plate this frame ─────────────────────────────────────
+            frame_plate_crop = None
+            frame_plate_text = None
+            if len(plate_results[0].boxes) > 0:
+                best_pbox = max(plate_results[0].boxes, key=lambda b: float(b.conf[0]))
+                px1, py1, px2, py2 = map(int, best_pbox.xyxy[0])
+                crop = frame[py1:py2, px1:px2]
+                if crop.size > 0:
+                    text = run_ocr(crop, ocr_model)
+                    if text != "No Plate Detected":
+                        frame_plate_crop = crop
+                        frame_plate_text = text
+
+            # ── Update pending buffer ─────────────────────────────────────
+            for box in no_helmet_boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                conf = float(box.conf[0])
+                cx   = (x1 + x2) // 2
+                matched_key = None
+                for key in pending:
+                    if abs(key - cx) < 80:
+                        matched_key = key
+                        break
+                rider_crop = frame[y1:y2, x1:x2]
+                if matched_key is None:
+                    pending[cx] = {
+                        "best_rider_crop": rider_crop,
+                        "best_rider_conf": conf,
+                        "plate_crop":      frame_plate_crop,
+                        "plate_text":      frame_plate_text,
+                    }
+                else:
+                    entry = pending[matched_key]
+                    if conf > entry["best_rider_conf"]:
+                        entry["best_rider_crop"] = rider_crop
+                        entry["best_rider_conf"] = conf
+                    if entry["plate_text"] is None and frame_plate_text is not None:
+                        entry["plate_crop"] = frame_plate_crop
+                        entry["plate_text"] = frame_plate_text
+                    pending[cx] = entry
+                    if matched_key != cx:
+                        del pending[matched_key]
+
+            # ── Log fully captured entries ────────────────────────────────
+            fully_captured = []
+            for key, entry in pending.items():
+                plate_text = entry["plate_text"] or "No Plate Detected"
+                # Skip if this position zone already logged
+                already_logged = any(abs(key - lp) < 80 for lp in logged_positions)
+                if entry["plate_crop"] is not None and plate_text not in seen_plates and not already_logged:
+                    seen_plates.add(plate_text)
+                    logged_positions.add(key)
+                    fully_captured.append(key)
+                    timestamp_clean = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19]
+                    rider_img_path  = os.path.join(VIOLATIONS_DIR, f"rider_{timestamp_clean}.jpg")
+                    plate_img_path  = os.path.join(VIOLATIONS_DIR, f"plate_{timestamp_clean}.jpg")
+                    cv2.imwrite(rider_img_path, entry["best_rider_crop"])
+                    cv2.imwrite(plate_img_path, entry["plate_crop"])
+                    violations_found.append({
+                        "Date and Time":    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "Rider Image Path": rider_img_path,
+                        "Plate Image Path": plate_img_path,
+                        "Extracted Text":   plate_text,
+                    })
+                    violation_count.markdown(
+                        f"<div class='status-badge' style='display:inline-block; margin-bottom:4px;'>"
+                        f"⚠ {len(violations_found)} VIOLATION(S) LOGGED SO FAR</div>",
+                        unsafe_allow_html=True
+                    )
+            for key in fully_captured:
+                pending.pop(key, None)
+
+        cap.release()
+        try:
+            os.unlink(video_path)
+        except PermissionError:
+            pass
+        progress_bar.progress(100)
+        status_text.markdown(
+            f"<p style='font-family:Courier New; font-size:0.72rem; color:#52c0a0;'>"
+            f"✓ VIDEO PROCESSING COMPLETE — {total_frames}/{total_frames} FRAMES DONE</p>",
+            unsafe_allow_html=True
+        )
+
+        save_to_csv(violations_found)
+
+        st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+
+        if not violations_found:
+            st.markdown(
+                "<div class='no-violation'>✓ NO VIOLATIONS DETECTED IN THIS VIDEO</div>",
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                f"<div class='status-badge' style='display:inline-block; margin-bottom:8px;'>"
+                f"⚠ {len(violations_found)} TOTAL VIOLATION(S) DETECTED — LOGGED</div>",
+                unsafe_allow_html=True
+            )
+
+        st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+        render_violation_log()
