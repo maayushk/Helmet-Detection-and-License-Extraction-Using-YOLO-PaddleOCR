@@ -45,16 +45,16 @@ Extract the ZIP to a folder on your computer (e.g. `C:\HelmetDetection`)
 
 ---
 
-### Step 3 — Download the Model Files
+### Step 3 — Model Files
 
-The AI model files are too large for GitHub. Download them separately:
+Both model files are included in this repository:
 
-| File | Description | Download |
-|---|---|---|
-| `yolo_helmet_model.pt` | Helmet detection model | [Download Link] |
-| `plate_model.pt` | License plate detection model | [Download Link] |
+| File | Description |
+|---|---|
+| `yolo_helmet_model.pt` | Helmet detection model |
+| `plate_model.pt` | License plate detection model |
 
-Place both `.pt` files in the **same folder** as `app.py`.
+They are already in the correct location — no extra setup needed.
 
 ---
 
