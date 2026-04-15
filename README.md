@@ -17,19 +17,19 @@ An AI-powered traffic violation detection system that identifies motorcycle ride
 ## 📸 Screenshots
 
 ### Home Screen
-![Home](ss1_home.png)
+![Home](Screenshots/Home.png)
 
 ### Image Mode — Detection Results
-![Image Detection](ss2_image_detection.png)
+![Image Detection](Screenshots/Image%20Input.png))
 
 ### Image Mode — Violation Logged
-![Image Result](ss3_image_result.png)
+![Image Result](Screenshots/Image%20Output.png)
 
 ### Video Mode — Live Processing
-![Video Processing](ss4_video_processing.png)
+![Video Processing](Screenshots/Video%20Input.png)
 
-### Video Mode — Violation Log
-![Video Result](ss5_video_result.png)
+### Video Mode — Violation Logged
+![Video Result](Screenshots/Video%20Output.png)
 
 ---
 
