@@ -58,13 +58,26 @@ They are already in the correct location — no extra setup needed.
 
 ---
 
-### Step 4 — Run the App
+### Step 4 — Install Required Packages (First Time Only)
+
+Double-click **`install.bat`**
+
+This will:
+- Detect whether you have an NVIDIA / AMD / Intel GPU
+- Install all required Python packages automatically
+- Takes about 5-10 minutes depending on your internet speed
+
+> ✅ Only do this once. Skip this step if you already have everything installed.
+
+---
+
+### Step 5 — Run the App
 
 Double-click **`run.bat`**
 
 This will:
-1. Automatically install all required Python packages
-2. Launch the app in your browser at `http://localhost:8501`
+- Check that everything is installed correctly
+- Launch the app in your browser at `http://localhost:8501`
 
 > If your browser doesn't open automatically, go to: **http://localhost:8501**
 
@@ -84,7 +97,9 @@ This will:
 ### Video Mode
 1. Select **Video/Real-time** from the sidebar
 2. Upload a `.mp4`, `.avi`, `.mov`, or `.mkv` file
-3. Full violation log appears after processing
+3. Click **▶ Start** to begin processing
+4. Click **⏹ Stop** at any time — violations found so far are saved
+5. Full violation log appears after processing
 
 ---
 
@@ -94,10 +109,11 @@ This will:
 HelmetDetection/
 │
 ├── app.py                  # Main application
-├── run.bat                 # Double-click to launch
-├── requirements.txt        # Python dependencies
-├── yolo_helmet_model.pt    # Helmet detection model (download separately)
-├── plate_model.pt          # Plate detection model (download separately)
+├── install.bat             # Run ONCE to install all packages
+├── run.bat                 # Double-click to launch the app
+├── requirements.txt        # Python dependencies (used by install.bat)
+├── yolo_helmet_model.pt    # Helmet detection model
+├── plate_model.pt          # License plate detection model
 │
 └── Violations/             # Auto-created when app runs
     ├── violations_log.csv  # All logged violations
