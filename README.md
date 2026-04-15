@@ -243,7 +243,3 @@ streamlit run app.py
 - SQLite database instead of CSV for better querying, filtering, and scalability
 
 ---
-
-## 👨‍💻 Made By
-
-**Aayush** — AI/ML Project, 2026
