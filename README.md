@@ -84,9 +84,7 @@ This will:
 ### Video Mode
 1. Select **Video/Real-time** from the sidebar
 2. Upload a `.mp4`, `.avi`, `.mov`, or `.mkv` file
-3. Click **▶ Start** to begin processing
-4. Click **⏹ Stop** at any time — violations found so far are saved
-5. Full violation log appears after processing
+3. Full violation log appears after processing
 
 ---
 
