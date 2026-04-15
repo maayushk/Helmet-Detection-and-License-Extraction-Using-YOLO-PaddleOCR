@@ -14,22 +14,75 @@ An AI-powered traffic violation detection system that identifies motorcycle ride
 
 ---
 
-## 📸 Screenshots
+## 📁 Project Structure
 
-### Home Screen
-![Home](Screenshots/Home.png)
+```
+HelmetDetection/
+│
+├── app.py                  # Main Streamlit application
+├── install.bat             # Run ONCE to install all packages
+├── run.bat                 # Double-click to launch the app
+├── requirements.txt        # Python package list
+├── yolo_helmet_model.pt    # Helmet detection model (YOLOv11)
+├── plate_model.pt          # License plate detection model (YOLOv8)
+│
+├── Screenshots/            # App screenshots
+│
+└── Violations/             # Auto-created when the app runs
+    ├── violations_log.csv  # Full violation history
+    ├── rider_*.jpg         # Saved rider face crops
+    └── plate_*.jpg         # Saved plate image crops
+```
 
-### Image Mode — Detection Results
-![Image Detection](Screenshots/Image%20Input.png)
+---
 
-### Image Mode — Violation Logged
-![Image Result](Screenshots/Image%20Output.png)
+## 🔧 How It Works
 
-### Video Mode — Live Processing
-![Video Processing](Screenshots/Video%20Input.png)
+### Detection Pipeline
 
-### Video Mode — Violation Logged
-![Video Result](Screenshots/Video%20Output.png)
+```
+Input            ──►  YOLOv11 Medium     ──►  YOLOv8 Nano       ──►  PaddleOCR        ──►  Violation Logger
+(Image/Video)         Helmet Detection        Plate Detection         Text Extraction        Save & Log
+                       • Rider                 • Finds nearest         • 3x upscale           • Rider crop
+                       • Helmet                  plate to rider        • Read all lines        • Plate crop
+                       • No_Helmet             • Per-rider             • Validate Indian       • Plate number
+                      ─────────────            assignment              state code              • CSV log
+                      No_Helmet + Rider?
+```
+
+### Smart Detection Features
+
+- **Rider-Helmet Linking** — No_Helmet is only flagged if it spatially overlaps with a Rider box, eliminating false positives like pedestrians or traffic police
+- **Nearest Plate Assignment** — Each rider is assigned the closest license plate to their bounding box, preventing wrong plate assignment when multiple bikes are in frame
+- **Duplicate Prevention** — Same person is never logged twice using plate text tracking and position zone tracking across frames
+- **Best Frame Selection (Video)** — Waits across multiple frames and picks the highest confidence plate reading before logging
+- **Indian Plate Validation** — OCR output is corrected for common misreads and validated against all 36 official Indian state/UT codes and the standard format (`XX00XX0000`)
+
+---
+
+## 🤖 Model Details
+
+| Model | Architecture | Classes | Epochs | Dataset |
+|---|---|---|---|---|
+| `yolo_helmet_model.pt` | YOLOv11 Medium | Motorcycle, Rider, Helmet, No_Helmet | 100 | Custom Indian traffic images |
+| `plate_model.pt` | YOLOv8 Nano | License_Plate | 50 | Indian Car Bike Number Plate v2 + ANPR Dataset |
+
+**OCR** — PaddleOCR 2.7.3 with DB detection + CRNN recognition, 3× upscale preprocessing, Indian state code validation.
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology | Purpose |
+|---|---|---|
+| UI | Streamlit | Web interface for image/video upload and results display |
+| Helmet Detection | YOLOv11 Medium | Detects riders, helmets, and no-helmet violations in real time |
+| Plate Detection | YOLOv8 Nano | Locates license plates in the frame |
+| OCR | PaddleOCR 2.7.3 | Extracts alphanumeric text from detected plate crops |
+| Deep Learning | PyTorch via Ultralytics | Runs YOLO model inference on CPU or GPU |
+| Image Processing | OpenCV | Frame reading, cropping, resizing, and color conversion |
+| Data Handling | Pandas, NumPy | Violation log management and array operations |
+| Training Platform | Google Colab + NVIDIA T4 | GPU-accelerated model training environment |
 
 ---
 
@@ -66,14 +119,7 @@ Extract the ZIP to a folder on your computer (e.g. `C:\HelmetDetection`)
 
 ### Step 3 — Model Files
 
-Both model files are included in this repository:
-
-| File | Description |
-|---|---|
-| `yolo_helmet_model.pt` | Helmet detection model |
-| `plate_model.pt` | License plate detection model |
-
-They are already in the correct location — no extra setup needed.
+Both model files are included in this repository — no extra setup needed.
 
 ---
 
@@ -81,12 +127,11 @@ They are already in the correct location — no extra setup needed.
 
 Double-click **`install.bat`**
 
-This will:
-- Detect whether you have an NVIDIA / AMD / Intel GPU
-- Install all required Python packages automatically
-- Takes about 5–10 minutes depending on your internet speed
+- Detects your GPU (NVIDIA / AMD / Intel) automatically
+- Installs all required packages
+- Takes about 5–10 minutes
 
-> ✅ Only do this once. Skip this step if you already have all packages installed.
+> ✅ Only do this once. Skip if you already have all packages installed.
 
 ---
 
@@ -94,12 +139,8 @@ This will:
 
 Double-click **`run.bat`**
 
-This will:
-- Check that everything is installed correctly
-- Check that model files are present
-- Launch the app in your browser at `http://localhost:8501`
-
-> If your browser doesn't open automatically, go to: **http://localhost:8501**
+- Checks everything is installed and model files are present
+- Opens the app at `http://localhost:8501`
 
 ---
 
@@ -108,44 +149,27 @@ This will:
 ### Image Mode
 1. Select **Image** from the sidebar
 2. Upload a `.jpg`, `.jpeg`, or `.png` file
-3. The system will show three panels:
-   - **Input image** — original upload
-   - **Helmet detection** — rider and helmet/no-helmet boxes
-   - **License plate detection** — detected plate boxes
+3. The system shows three panels — input, helmet detection, plate detection
 4. Violations are automatically logged in the table below
 
 ### Video Mode
 1. Select **Video/Real-time** from the sidebar
 2. Upload a `.mp4`, `.avi`, `.mov`, or `.mkv` file
-3. Click **▶ Start** to begin processing
-4. Click **⏹ Stop** at any time — all violations found so far are saved
-5. The last processed frame and full violation log appear after processing
+3. Violation log appears after processing completes
 
 ---
 
-## 📁 Project Structure
+## 🗒️ Notes
 
-```
-HelmetDetection/
-│
-├── app.py                  # Main Streamlit application
-├── install.bat             # Run ONCE to install all packages
-├── run.bat                 # Double-click to launch the app
-├── requirements.txt        # Python package list
-├── yolo_helmet_model.pt    # Helmet detection model (YOLOv11)
-├── plate_model.pt          # License plate detection model (YOLOv8)
-│
-└── Violations/             # Auto-created when the app runs
-    ├── violations_log.csv  # Full violation history
-    ├── rider_*.jpg         # Saved rider face crops
-    └── plate_*.jpg         # Saved plate image crops
-```
+- First run takes longer as PaddleOCR downloads its internal models (~500MB) — one-time only
+- NVIDIA GPU is automatically used if available — no manual setup needed
+- The `Violations/` folder and CSV log are created automatically and persist across sessions
 
 ---
 
 ## 🛠️ Manual Installation (if install.bat fails)
 
-Open **Command Prompt** and run these one by one:
+Open **Command Prompt** and run:
 
 ```bash
 pip install streamlit
@@ -157,118 +181,34 @@ pip install paddlepaddle==2.6.2
 pip install paddleocr==2.7.3
 ```
 
-Then launch the app:
+Then launch:
 ```bash
 streamlit run app.py
 ```
 
 ---
 
-## 🔧 How It Works
+## 📸 Screenshots
 
-### Detection Pipeline
+<p align="center">
+  <img src="Screenshots/Home.png" width="700"/><br><em>Home Screen</em>
+</p>
 
-```
-Input (Image / Video)
-        │
-        ▼
-┌─────────────────────────┐
-│     YOLOv11 Medium      │  Helmet Detection Model
-│  Detects:               │
-│  • Rider                │
-│  • Helmet               │
-│  • No_Helmet            │
-└──────────┬──────────────┘
-           │ No_Helmet linked to a Rider?
-           ▼
-┌─────────────────────────┐
-│     YOLOv8 Nano         │  License Plate Detection Model
-│  Finds nearest plate    │
-│  to the violating rider │
-└──────────┬──────────────┘
-           │
-           ▼
-┌─────────────────────────┐
-│       PaddleOCR         │  Text Extraction
-│  • 3x upscale           │
-│  • Read all text lines  │
-│  • Validate Indian      │
-│    state code + format  │
-└──────────┬──────────────┘
-           │
-           ▼
-┌─────────────────────────┐
-│    Violation Logger     │
-│  • Save rider crop      │
-│  • Save plate crop      │
-│  • Save plate number    │
-│  • Append to CSV log    │
-└─────────────────────────┘
-```
+<p align="center">
+  <img src="Screenshots/Image%20Input.png" width="700"/><br><em>Image Mode — Detection Results</em>
+</p>
 
-### Smart Detection Features
+<p align="center">
+  <img src="Screenshots/Image%20Output.png" width="700"/><br><em>Image Mode — Violation Logged</em>
+</p>
 
-- **Rider-Helmet Linking** — No_Helmet is only flagged if it spatially overlaps with a Rider box, eliminating false positives like pedestrians or traffic police
-- **Nearest Plate Assignment** — Each rider is assigned the closest license plate to their bounding box, preventing wrong plate assignment when multiple bikes are in frame
-- **Duplicate Prevention** — Same person is never logged twice using plate text tracking and position zone tracking across frames
-- **Best Frame Selection (Video)** — Waits across multiple frames and picks the highest confidence plate reading before logging
-- **Indian Plate Validation** — OCR output is corrected for common misreads and validated against all 36 official Indian state/UT codes and the standard format (`XX00XX0000`)
+<p align="center">
+  <img src="Screenshots/Video%20Input.png" width="700"/><br><em>Video Mode — Live Processing</em>
+</p>
 
----
-
-## 🤖 Model Details
-
-### Helmet Detection — `yolo_helmet_model.pt`
-
-| Property | Details |
-|---|---|
-| Architecture | YOLOv11 Medium |
-| Base Model | `yolo11m.pt` (pretrained on COCO) |
-| Classes | `Motorcycle`, `Rider`, `Helmet`, `No_Helmet` |
-| Input Size | 640 × 640 px |
-| Epochs | 100 |
-| Training Platform | Google Colab — NVIDIA T4 GPU |
-| Framework | Ultralytics YOLOv11 + PyTorch |
-| Dataset | Custom annotated Indian traffic images |
-
-### License Plate Detection — `plate_model.pt`
-
-| Property | Details |
-|---|---|
-| Architecture | YOLOv8 Nano |
-| Base Model | `yolov8n.pt` (pretrained on COCO) |
-| Classes | `License_Plate` |
-| Input Size | 640 × 640 px |
-| Epochs | 50 |
-| Training Platform | Google Colab — NVIDIA T4 GPU |
-| Framework | Ultralytics YOLOv8 + PyTorch |
-| Datasets | Indian Car Bike Number Plate v2 + Large License Plate Detection + ANPR Dataset (merged & cleaned) |
-
-### OCR — PaddleOCR 2.7.3
-
-| Property | Details |
-|---|---|
-| Backend | PaddlePaddle 2.6.2 |
-| Detection Model | DB (Differentiable Binarization) |
-| Recognition Model | CRNN |
-| Preprocessing | 3× bicubic upscale before inference |
-| Post-processing | State code correction + regex format validation |
-| Language | English |
-
----
-
-## 🛠️ Tech Stack
-
-| Component | Technology |
-|---|---|
-| UI | Streamlit |
-| Helmet Detection | YOLOv11 Medium — custom trained |
-| Plate Detection | YOLOv8 Nano — custom trained |
-| OCR | PaddleOCR 2.7.3 |
-| Deep Learning Framework | PyTorch (via Ultralytics) |
-| Image Processing | OpenCV |
-| Data Handling | Pandas, NumPy |
-| Training Platform | Google Colab (NVIDIA T4 GPU) |
+<p align="center">
+  <img src="Screenshots/Video%20Output.png" width="700"/><br><em>Video Mode — Violation Log</em>
+</p>
 
 ---
 
@@ -304,11 +244,6 @@ Input (Image / Video)
 
 ---
 
-## 🗒️ Notes
+## 👨‍💻 Made By
 
-- First run takes longer as PaddleOCR downloads its internal models (~500MB) — this is a one-time download
-- NVIDIA GPU is automatically used if available — no manual setup needed
-- The `Violations/` folder is created automatically in the same directory as `app.py`
-- Violation log (`violations_log.csv`) persists across sessions and keeps growing
-
----
+**Aayush** — AI/ML Project, 2026
