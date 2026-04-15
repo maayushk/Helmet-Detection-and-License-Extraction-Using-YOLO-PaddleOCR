@@ -20,7 +20,7 @@ An AI-powered traffic violation detection system that identifies motorcycle ride
 ![Home](Screenshots/Home.png)
 
 ### Image Mode — Detection Results
-![Image Detection](Screenshots/Image%20Input.png))
+![Image Detection](Screenshots/Image%20Input.png)
 
 ### Image Mode — Violation Logged
 ![Image Result](Screenshots/Image%20Output.png)
