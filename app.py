@@ -363,7 +363,7 @@ if input_type == "Image":
 # ════════════════════════════════════════════
 # VIDEO MODE
 # ════════════════════════════════════════════
-elif input_type == "Video/Real-time":
+elif input_type == "Video":
     uploaded_video = st.file_uploader("Upload a video", type=["mp4", "avi", "mov", "mkv"])
 
     if uploaded_video is not None:
