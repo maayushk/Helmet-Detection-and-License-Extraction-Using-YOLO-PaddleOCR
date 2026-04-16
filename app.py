@@ -25,7 +25,7 @@ load_css("style.css")
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 st.sidebar.title("Input Source")
-input_type = st.sidebar.radio("", ["Image", "Video/Real-time"])
+input_type = st.sidebar.radio("", ["Image", "Video"])
 
 # ── Title ─────────────────────────────────────────────────────────────────────
 st.title("⬡ HELMET VIOLATION SYSTEM")
