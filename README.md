@@ -28,10 +28,17 @@ HelmetDetection/
 │
 ├── Screenshots/            # App screenshots
 │
-└── Violations/             # Auto-created when the app runs
-    ├── violations_log.csv  # Full violation history
-    ├── rider_*.jpg         # Saved rider face crops
-    └── plate_*.jpg         # Saved plate image crops
+└── Violations/
+    ├── Violation_16-04-2026_11-18-AM/
+    │   ├── rider_20260416_111823_123.jpg
+    │   ├── plate_20260416_111823_123.jpg
+    │   └── violations_log.csv
+    ├── Violation_16-04-2026_02-45-PM/
+    │   ├── rider_20260416_144502_456.jpg
+    │   ├── plate_20260416_144502_456.jpg
+    │   └── violations_log.csv
+    └── Violation_17-04-2026_09-30-AM/
+        └── violations_log.csv
 ```
 
 ---
