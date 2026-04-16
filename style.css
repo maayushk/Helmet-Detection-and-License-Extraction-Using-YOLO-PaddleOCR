@@ -1,0 +1,109 @@
+/* ============================================================
+   Helmet Violation System — Stylesheet
+   Loaded by app.py via load_css("style.css")
+   ============================================================ */
+
+.stApp {
+    background-color: #0f1117;
+    color: #e0e0e0;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #1a1d27;
+    border-right: 1px solid #2e3145;
+}
+
+.block-container {
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+}
+
+h1 {
+    font-family: Arial, sans-serif;
+    font-size: 1.6rem !important;
+    letter-spacing: 2px;
+    color: #f0c040 !important;
+    border-bottom: 1px solid #f0c040;
+    padding-bottom: 8px;
+    margin-bottom: 0.5rem !important;
+}
+
+h3 {
+    font-family: Arial, sans-serif;
+    color: #e0e0e0 !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem !important;
+}
+
+.img-label {
+    background: #1e2130;
+    border: 1px solid #3a3f5c;
+    border-top: 2px solid #f0c040;
+    padding: 6px 12px;
+    font-family: Arial, sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #f0c040;
+    margin-bottom: 6px;
+    font-weight: bold;
+}
+
+.plate-number {
+    font-family: Arial, sans-serif;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #f0c040;
+    letter-spacing: 1px;
+}
+
+.timestamp {
+    font-family: Arial, sans-serif;
+    font-size: 0.78rem;
+    color: #c0c8d8;
+    letter-spacing: 0px;
+}
+
+.status-badge {
+    display: inline-block;
+    background: #e05252;
+    color: white;
+    font-family: Arial, sans-serif;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    letter-spacing: 1.5px;
+}
+
+.no-violation {
+    background: #1a1d27;
+    border: 1px solid #2e3145;
+    border-left: 3px solid #52c0a0;
+    padding: 10px 14px;
+    font-family: Arial, sans-serif;
+    font-size: 0.8rem;
+    color: #52c0a0;
+}
+
+.loading-box {
+    background: #1a1d27;
+    border: 1px solid #2e3145;
+    border-left: 3px solid #f0c040;
+    padding: 16px 20px;
+    font-family: Arial, sans-serif;
+    font-size: 0.85rem;
+    color: #f0c040;
+    letter-spacing: 1px;
+    margin: 1rem 0;
+}
+
+.section-divider {
+    border: none;
+    border-top: 1px solid #2e3145;
+    margin: 1.2rem 0;
+}
+
+.stImage > div > img {
+    border: 1px solid #2e3145;
+}
